@@ -1,0 +1,57 @@
+# Reports when processes read configuration-style artifacts in selected user-space paths.
+# Example: a service loading config.json or settings.yaml before starting work.
+# Hook: security_file_permission (LSM) again, filtered for read access and common config file suffixes.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "fs-read-config-artifacts"
+spec:
+  kprobes:
+  - call: "security_file_permission"
+    syscall: false
+    return: true
+    args:
+    # Resolve the full path from the file struct.
+    - index: 0
+      type: "file"
+      label: "file"
+    # Access mask includes MAY_READ (0x04).
+    - index: 1
+      type: "int"
+      label: "mask"
+    returnArg:
+      index: 0
+      type: "int"
+    returnArgAction: "Post"
+    selectors:
+    - matchArgs:
+      # Focus on the same user-space roots to avoid noise from system packages.
+      - index: 0
+        operator: "Prefix"
+        values:
+        - "/home/"
+        - "/root/"
+      # Only flag files ending in common config extensions.
+      - index: 0
+        operator: "Postfix"
+        values:
+        - ".json"
+        - ".yaml"
+        - ".yml"
+        - ".toml"
+        - ".mcp"
+        - ".rc"
+        - ".config"
+        - ".conf"
+        - ".cfg"
+        - ".ini"
+      # Filter to reads (MAY_READ flag).
+      - index: 1
+        operator: "Mask"
+        values:
+        - "4"     # MAY_READ
+      matchReturnArgs:
+      - index: 0
+        operator: "Equal"
+        values:
+        - "0"     # Only record if the kernel allowed the read.

@@ -1,0 +1,30 @@
+# Records outbound TCP connections from user processes to external (non-private) addresses.
+# Example: a local tool calling an internet API; local or RFC1918 destinations are filtered out.
+# Hook: tcp_connect fires when the kernel is establishing a connect() call.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "net-outbound-remote"
+spec:
+  kprobes:
+  - call: "tcp_connect"
+    syscall: false
+    args:
+    # Arg0 is the socket; Tetragon pulls destination IP/port from it.
+    - index: 0
+      type: "sock"
+      label: "sk"
+    selectors:
+    - matchArgs:
+      # Emit when destination is outside local, loopback, and link-local ranges.
+      - index: 0
+        operator: "NotDAddr"
+        values:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+        - "127.0.0.0/8"
+        - "169.254.0.0/16"
+        - "::1/128"
+        - "fc00::/7"
+        - "fe80::/10"

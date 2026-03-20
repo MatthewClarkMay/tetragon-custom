@@ -1,0 +1,28 @@
+# Captures DNS queries (TCP or UDP) leaving the host.
+# Hook: ip_output runs for outbound packets; this policy filters to port 53 and relevant protocols.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "net-dns-outbound"
+spec:
+  kprobes:
+  - call: "ip_output"
+    syscall: false
+    args:
+    # skb (socket buffer) contains destination IP/port information.
+    - index: 2
+      type: "skb"
+      label: "skb"
+    selectors:
+    - matchArgs:
+      # DNS can be UDP (most common) or TCP (large responses), so capture both.
+      - index: 2
+        operator: "Protocol"
+        values:
+        - "IPPROTO_UDP"
+        - "IPPROTO_TCP"
+      # Destination port 53 = DNS server.
+      - index: 2
+        operator: "DPort"
+        values:
+        - "53"

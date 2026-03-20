@@ -1,0 +1,55 @@
+# Captures lifecycle mutations (rename, delete, symlink) for filesystem activity.
+# Example: rotating log files, replacing outputs, or cleaning a workspace.
+# Hooks: renameat2, unlinkat, and symlinkat tracepoints expose the raw path arguments directly.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "fs-rename-delete"
+spec:
+  tracepoints:
+  - subsystem: "syscalls"
+    event: "sys_enter_renameat2"
+    args:
+    # Directory fd for the old path.
+    - index: 5
+      type: "int64"
+      label: "olddfd"
+    # Original file path.
+    - index: 6
+      type: "string"
+      label: "oldpath"
+    - index: 7
+      type: "int64"
+      label: "newdfd"
+    # Destination file path.
+    - index: 8
+      type: "string"
+      label: "newpath"
+    - index: 9
+      type: "uint64"
+      label: "flags"
+  - subsystem: "syscalls"
+    event: "sys_enter_unlinkat"
+    args:
+    - index: 5
+      type: "int64"
+      label: "dfd"
+    # Path being unlinked (removed).
+    - index: 6
+      type: "string"
+      label: "path"
+    - index: 7
+      type: "uint64"
+      label: "flag"
+  - subsystem: "syscalls"
+    event: "sys_enter_symlinkat"
+    args:
+    - index: 5
+      type: "string"
+      label: "target"
+    - index: 6
+      type: "int64"
+      label: "newdfd"
+    - index: 7
+      type: "string"
+      label: "linkpath"
