@@ -1,0 +1,23 @@
+# Captures TCP connects to loopback addresses.
+# Hook: tcp_connect again, restricted to 127.0.0.0/8 and ::1 destinations.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "net-outbound-loopback"
+spec:
+  kprobes:
+  - call: "tcp_connect"
+    syscall: false
+    args:
+    # Socket pointer; destination is read from here.
+    - index: 0
+      type: "sock"
+      label: "sk"
+    selectors:
+    - matchArgs:
+      # Only loopback ranges; external traffic is handled by the remote policy.
+      - index: 0
+        operator: "DAddr"
+        values:
+        - "127.0.0.0/8"
+        - "::1/128"

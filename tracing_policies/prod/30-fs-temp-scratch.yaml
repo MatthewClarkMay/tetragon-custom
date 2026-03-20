@@ -1,0 +1,57 @@
+# Filesystem scratch tracking: watches openat calls that create or truncate files.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "fs-temp-scratch"
+spec:
+  tracepoints:
+  - subsystem: "syscalls"
+    event: "sys_enter_openat"
+    args:
+    - index: 6
+      type: "string"
+      label: "path"
+    - index: 7
+      type: "uint64"
+      label: "flags"
+    selectors:
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "64"
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "512"
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "4194304"
+  - subsystem: "syscalls"
+    event: "sys_enter_openat2"
+    args:
+    - index: 6
+      type: "string"
+      label: "path"
+    - index: 7
+      type: "uint64"
+      label: "flags"
+    selectors:
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "64"
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "512"
+    - matchArgs:
+      - args: [1]
+        operator: "Mask"
+        values:
+        - "4194304"

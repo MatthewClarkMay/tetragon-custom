@@ -1,0 +1,24 @@
+# Emits events when a process begins listening for inbound TCP connections (IPv4 or IPv6).
+# Hook: inet_csk_listen_start triggers when listen(2) transitions a socket to LISTEN.
+# Example: a local service binding to 0.0.0.0:8080.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "net-inbound-listen"
+spec:
+  kprobes:
+  - call: "inet_csk_listen_start"
+    syscall: false
+    args:
+    # Socket context; contains family, port, and bound address.
+    - index: 0
+      type: "sock"
+      label: "sk"
+    selectors:
+    - matchArgs:
+      # Watch TCP/IPv4 and TCP/IPv6 sockets.
+      - index: 0
+        operator: "Family"
+        values:
+        - "AF_INET"
+        - "AF_INET6"

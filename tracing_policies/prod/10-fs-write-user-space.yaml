@@ -1,0 +1,44 @@
+# Observes successful write attempts against selected user-space file trees.
+# Example: a tool writing results or downloads under /home/... or /root/...
+# Hook: security_file_permission (LSM) fires on each write permission check; events are posted only when the kernel approves the write.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "fs-write-user-space"
+spec:
+  kprobes:
+  - call: "security_file_permission"
+    syscall: false
+    return: true
+    args:
+    # Arg0 is the kernel file struct; Tetragon resolves it to the absolute path.
+    - index: 0
+      type: "file"
+      label: "file"
+    # Arg1 carries the access mask (MAY_READ, MAY_WRITE, etc). We watch for writes only.
+    - index: 1
+      type: "int"
+      label: "mask"
+    returnArg:
+      index: 0
+      type: "int"
+    returnArgAction: "Post"
+    selectors:
+    - matchArgs:
+      # Limit to user-space roots of interest so system paths do not dominate event volume.
+      - index: 0
+        operator: "Prefix"
+        values:
+        - "/home/"
+        - "/root/"
+      # Only emit when the caller asked for write-style permissions (MAY_WRITE).
+      - index: 1
+        operator: "Mask"
+        values:
+        - "2"     # MAY_WRITE
+      matchReturnArgs:
+      # Only post when the kernel said "allowed" (return 0).
+      - index: 0
+        operator: "Equal"
+        values:
+        - "0"

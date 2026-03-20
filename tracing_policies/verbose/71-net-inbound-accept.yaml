@@ -1,0 +1,44 @@
+# Emits events when a TCP connection from a non-loopback client is fully established.
+# Hook: tcp_set_state observes socket state transitions; ESTABLISHED indicates an accepted connection.
+# Example: a remote client connecting to a local service port.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: "net-inbound-accept"
+spec:
+  kprobes:
+  - call: "tcp_set_state"
+    syscall: false
+    args:
+    # Socket pointer; provides peer IP/port.
+    - index: 0
+      type: "sock"
+      label: "sk"
+    # New TCP state value.
+    - index: 1
+      type: "int"
+      label: "state"
+    selectors:
+    - matchArgs:
+      # Monitor IPv4/IPv6 server sockets.
+      - index: 0
+        operator: "Family"
+        values:
+        - "AF_INET"
+        - "AF_INET6"
+      # Destination address should be one of the local ranges; this filters out
+      # outbound client connects whose destination is remote.
+      - index: 0
+        operator: "DAddr"
+        values:
+        - "127.0.0.0/8"
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+        - "::1/128"
+        - "fc00::/7"
+      # ESTABLISHED means the handshake completed (SYN -> SYN-ACK -> ACK).
+      - index: 1
+        operator: "Equal"
+        values:
+        - "1"  # TCP_ESTABLISHED
